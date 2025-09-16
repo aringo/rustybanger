@@ -1,0 +1,38 @@
+[package]
+name = "shodan_ingest"
+version = "0.2.0"
+edition = "2021"
+
+[features]
+# Enable with: --features simd
+simd = ["simd-json/serde_impl"]
+
+[dependencies]
+anyhow = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "fs", "signal", "time"] }
+clap = { version = "4", features = ["derive", "env"] }  
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+zstd = "0.13"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] } 
+simd-json = { version = "0.13", optional = true }
+tokio-postgres = { version = "0.7", features = ["with-serde_json-1"] }
+bytes = "1"
+futures-util = "0.3" 
+futures = "0.3"
+regex = "1"
+once_cell = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "minimizer_bench"
+harness = false
+
+[[bench]]
+name = "stream_minimize_bench"
+harness = false

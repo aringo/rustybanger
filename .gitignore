@@ -1,0 +1,122 @@
+# Rust build artifacts
+target/
+target/debug/
+target/release/
+target/*/debug/
+target/*/release/
+Cargo.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Backup files
+*.bak
+*.backup
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Test data and output files
+test_*.json
+test_*.json.zst
+output.json
+*.zst
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Build and distribution directories
+build/
+dist/
+pkg/
+
+# Rust specific
+rusty_banger
+*.rlib
+*.rmeta
+*.dSYM/
+
+# Cargo registry cache
+.cargo/
+
+# Documentation
+book/
+
+# Benchmark results
+criterion/
+
+# Performance profiling
+perf.data
+perf.data.old
+
+# Core dumps
+core
+core.*
+
+# Python virtual environments (if any)
+venv/
+.venv/
+env/
+ENV/
+
+# Jupyter notebooks
+.ipynb_checkpoints
+
+# Node modules (if any JS tools are used)
+node_modules/
+
+# Docker volumes
+docker-volumes/
+
+# Local configuration
+config.local.*
+*.local
+
+# Secrets and keys
+*.key
+*.pem
+secrets/
+keys/
+
+# Data files
+data/
+*.zst
+*.gz
+*.bz2
+
+# Test coverage
+coverage/
+*.profraw
+
+# Flamegraphs
+flamegraph.svg
+
+# Temporary directories
+tmp/
+temp/

@@ -1,0 +1,37 @@
+based on the schema in the init.sql I need to generate a full featured python fastAPI interface for working with, querying and exploring the data to determine what it looks like and see what kind of data can still be minimized. This should support misc queries to support analysis and be documented in a readme and be made in a subfolder 
+
+
+
+docker ps --filter name=shodan-postgres
+
+docker logs -f --tail 200 shodan-postgres
+
+docker exec -it shodan-postgres psql -U postgres -d shodan_db
+
+docker exec -i shodan-postgres psql -U postgres -d shodan_db -c "SELECT now(), version();"
+
+
+We should use a native hash for minimization if we need a shodan hash drop that data.
+
+
+empty "redirects": [],
+"location": "/",
+"title_hash": null,
+"server_hash": null,
+
+
+minimization remove it's own IP address from the data to further dedupe , for websites this is the domain
+
+"preview": "162.128.56.109 conf not found"
+"preview": "117.149.243.77 conf not found"
+
+The WAF regex replacement is not included 
+
+ "versions": [
+            "TLSv1",
+            "-SSLv2",
+            "-SSLv3",
+            "TLSv1.1",
+            "TLSv1.2",
+            "-TLSv1.3"
+

@@ -1,0 +1,7 @@
+tech:http.headers.server
+tech:ssh.banner
+tech:ssl.ja3s
+tech:ssl.jarm
+tech:ssl.cert.subject.CN
+tech:ssl.cert.issuer.0
+

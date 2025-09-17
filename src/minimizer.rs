@@ -439,10 +439,10 @@ pub fn minimize_record_with_keep2(raw_json: &str, keep_meta: &[String], keep_tec
         meta_map.remove(k);
     }
 
-    // Minimal path: handle HTTP (html, headers, favicon) and SSL essentials into tech
+    // Minimal path: handle HTTP (html, headers, favicon). SSL is not included by default.
+    // SSL fields can be added via keep-file (tech:ssl.*) if desired.
     let reducers: Vec<Box<dyn ProtocolReducer>> = vec![
         Box::new(HttpReducer),
-        Box::new(SslReducer),
     ];
     let mut html_tuple: Option<(i64, String)> = None;
     for r in reducers {
@@ -501,7 +501,7 @@ pub fn minimize_record_with_keep2(raw_json: &str, keep_meta: &[String], keep_tec
         let dest = meta_val.as_object_mut().unwrap();
         for path in keep_meta {
             if let Some(val) = get_value_by_path(&v, path) {
-                insert_by_path(dest, path, val.clone());
+                dest.insert(path.to_string(), val.clone());
             }
         }
     }
@@ -509,7 +509,7 @@ pub fn minimize_record_with_keep2(raw_json: &str, keep_meta: &[String], keep_tec
         let dest = tech_val.as_object_mut().unwrap();
         for path in keep_tech {
             if let Some(val) = get_value_by_path(&v, path) {
-                insert_by_path(dest, path, val.clone());
+                dest.insert(path.to_string(), val.clone());
             }
         }
     }

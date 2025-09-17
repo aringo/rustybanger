@@ -28,6 +28,7 @@ pub struct Config {
     pub max_records: Option<usize>,
     pub json_output: bool,
     pub json_output_file: Option<String>,
+    pub keep_fields: Vec<String>,
 }
 
 pub async fn run(cfg: Config) -> Result<()> {
@@ -74,9 +75,11 @@ pub async fn run(cfg: Config) -> Result<()> {
     let rx_shared = Arc::new(Mutex::new(rx_lines));
 
     // Worker pool
+    let keep_fields = cfg.keep_fields.clone();
     for _ in 0..cfg.workers {
         let rx_shared_cloned = Arc::clone(&rx_shared);
         let tx_out = tx_recs.clone();
+        let keep_fields_worker = keep_fields.clone();
         tokio::spawn(async move {
             loop {
                 // Pull one line; only recv is behind the mutex
@@ -117,9 +120,9 @@ pub async fn run(cfg: Config) -> Result<()> {
                 // Minimize full record JSON for meta/tech/scheme/html
                 let minimized = {
                     #[cfg(feature = "simd")]
-                    { minimize_record(std::str::from_utf8(&line_bytes).unwrap_or("")) }
+                    { crate::minimizer::minimize_record_with_keep(std::str::from_utf8(&line_bytes).unwrap_or(""), &keep_fields_worker) }
                     #[cfg(not(feature = "simd"))]
-                    { minimize_record(&line) }
+                    { crate::minimizer::minimize_record_with_keep(&line, &keep_fields_worker) }
                 };
                 let Some(minimized) = minimized else { continue };
 

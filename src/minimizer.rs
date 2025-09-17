@@ -146,17 +146,25 @@ impl ProtocolReducer for HttpReducer {
         if let Some(Value::Object(hdrs)) = http.get("headers") {
             if !hdrs.is_empty() {
                 let whitelist = [
+                    "server", // include server
                     "content-type", "content-length", "cache-control", "pragma",
                     "x-powered-by", "server-timing", "strict-transport-security",
                     "access-control-allow-origin", "x-frame-options", "x-content-type-options",
                     "referrer-policy", "permissions-policy"
                 ];
                 let mut filtered = Map::new();
+                // Build a lowercase view of headers for case-insensitive access
+                let mut lower_map: Map<String, Value> = Map::new();
+                for (k, v) in hdrs.iter() {
+                    lower_map.insert(k.to_ascii_lowercase(), v.clone());
+                }
                 for k in whitelist.iter() {
-                    if let Some(v) = hdrs.get(*k) {
+                    if let Some(v) = lower_map.get(&k.to_ascii_lowercase()) {
                         filtered.insert((*k).to_string(), v.clone());
                     }
                 }
+                // Explicitly drop any set-cookie (case-insensitive) if present
+                filtered.remove("set-cookie");
                 if !filtered.is_empty() {
                     tech.insert("http_headers".to_string(), Value::Object(filtered));
                 }
@@ -343,7 +351,31 @@ fn derive_scheme(port: Option<i64>, has_http: bool, has_ssl: bool) -> String {
     }
 }
 
-pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
+fn copy_keep_fields(root: &Value, keep: &[String]) -> Map<String, Value> {
+    // Copies dot-notation fields from root into a flat object using last segment as key
+    let mut out = Map::new();
+    for path in keep {
+        let parts: Vec<&str> = path.split('.').collect();
+        let mut cur = root;
+        let mut found = true;
+        for p in &parts {
+            match cur {
+                Value::Object(map) => {
+                    if let Some(n) = map.get(*p) { cur = n; } else { found = false; break; }
+                }
+                _ => { found = false; break; }
+            }
+        }
+        if found {
+            if let Some(key) = parts.last() {
+                out.insert((*key).to_string(), cur.clone());
+            }
+        }
+    }
+    out
+}
+
+pub fn minimize_record_with_keep(raw_json: &str, keep: &[String]) -> Option<Minimized> {
     let mut v: Value = serde_json::from_str(raw_json).ok()?;
     let obj = v.as_object_mut()?;
 
@@ -456,6 +488,12 @@ pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
     let mut sanitization_fixes = 0usize;
     sanitize_value(&mut meta_val, &mut sanitization_fixes);
     sanitize_value(&mut tech_val, &mut sanitization_fixes);
+    // Apply allowlist copies from raw JSON into tech
+    if !keep.is_empty() {
+        let extra = copy_keep_fields(&v, keep);
+        for (k, val) in extra { tech_val.as_object_mut().unwrap().insert(k, val); }
+    }
+
     let meta_json = meta_val.to_string();
     let tech_json = tech_val.to_string();
 
@@ -463,6 +501,10 @@ pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
     let html_hash_b3 = html_tuple.as_ref().map(|(_, body)| blake3::hash(body.as_bytes()).to_hex().to_string());
 
     Some(Minimized { meta_json, tech_json, html: html_tuple, scheme, sanitization_fixes, html_hash_b3 })
+}
+
+pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
+    minimize_record_with_keep(raw_json, &[])
 }
 
 #[cfg(test)]

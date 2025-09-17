@@ -36,6 +36,9 @@ struct Args {
     /// JSON output file path (default: stdout)
     #[arg(long)]
     json_output_file: Option<String>,
+    /// Dot-notation allowlist of fields to keep from raw Shodan JSON (repeatable)
+    #[arg(long = "keep")]
+    keep: Vec<String>,
 }
 
 #[tokio::main]
@@ -55,5 +58,6 @@ async fn main() -> Result<()> {
         max_records: args.max_records,
         json_output: args.json_output,
         json_output_file: args.json_output_file,
+        keep_fields: args.keep,
     }).await
 }

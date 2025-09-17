@@ -4,8 +4,9 @@ mod types;
 mod minimizer;
 
 use clap::Parser;
-use anyhow::Result;
+use anyhow::{Result, Context};
 use tracing_subscriber::EnvFilter;
+use std::fs;
 
 #[derive(Parser, Debug, Clone)]
 struct Args {
@@ -39,6 +40,9 @@ struct Args {
     /// Dot-notation allowlist of fields to keep from raw Shodan JSON (repeatable)
     #[arg(long = "keep")]
     keep: Vec<String>,
+    /// File with dot-notation fields to keep (newline-separated or JSON array)
+    #[arg(long = "keep-file")]
+    keep_file: Option<String>,
 }
 
 #[tokio::main]
@@ -48,6 +52,28 @@ async fn main() -> Result<()> {
         .init();
 
     let args = Args::parse();
+
+    // Load keep-file if provided
+    let mut keep_fields = args.keep.clone();
+    if let Some(path) = &args.keep_file {
+        let content = fs::read_to_string(path).with_context(|| format!("read keep-file {}", path))?;
+        // Try JSON array first
+        let parsed_json: Result<Vec<String>, _> = serde_json::from_str(&content);
+        let mut from_file: Vec<String> = match parsed_json {
+            Ok(v) => v,
+            Err(_) => {
+                // Fallback: newline-separated, trim and skip empties/comments
+                content
+                    .lines()
+                    .map(|l| l.trim())
+                    .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                    .map(|s| s.to_string())
+                    .collect()
+            }
+        };
+        keep_fields.append(&mut from_file);
+    }
+
     pipeline::run(pipeline::Config {
         path: args.input,
         batch_size: args.batch,
@@ -58,6 +84,6 @@ async fn main() -> Result<()> {
         max_records: args.max_records,
         json_output: args.json_output,
         json_output_file: args.json_output_file,
-        keep_fields: args.keep,
+        keep_fields,
     }).await
 }

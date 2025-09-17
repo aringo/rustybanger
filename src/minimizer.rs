@@ -169,7 +169,20 @@ impl ProtocolReducer for HttpReducer {
             }
         }
 
-        // Do not promote server header
+        // Minimal HTTP: capture headers and favicon hash into tech
+        if let Some(Value::Object(hdrs)) = http.get("headers") {
+            // Copy a minimal subset or full headers as a map, depending on presence
+            if !hdrs.is_empty() {
+                tech.insert("http_headers".to_string(), Value::Object(hdrs.clone()));
+            }
+        }
+        if let Some(fav) = http.get_mut("favicon") {
+            if let Value::Object(f) = fav {
+                if let Some(Value::Number(h)) = f.get("hash") {
+                    tech.insert("favicon_hash".to_string(), Value::Number(h.clone()));
+                }
+            }
+        }
         }
         html_out
     }
@@ -180,31 +193,31 @@ impl ProtocolReducer for SslReducer {
     fn reduce(
         &self,
         obj: &mut Map<String, Value>,
-        _tech: &mut Map<String, Value>,
+        tech: &mut Map<String, Value>,
     ) -> Option<(i64, String)> {
         if let Some(Value::Object(mut ssl)) = obj.remove("ssl") {
-        let mut slim = Map::new();
-        if let Some(v) = ssl.remove("ja3s") { slim.insert("ja3s".to_string(), v); }
-        if let Some(v) = ssl.remove("jarm") { slim.insert("jarm".to_string(), v); }
-        if let Some(v) = ssl.remove("versions") { slim.insert("versions".to_string(), v); }
-        if let Some(Value::Object(mut cipher)) = ssl.remove("cipher") {
-            let mut keep = Map::new();
-            if let Some(v) = cipher.remove("name") { keep.insert("name".to_string(), v); }
-            if let Some(v) = cipher.remove("version") { keep.insert("version".to_string(), v); }
-            if !keep.is_empty() { slim.insert("cipher".to_string(), Value::Object(keep)); }
-        }
-        if let Some(Value::Object(mut cert)) = ssl.remove("cert") {
-            let mut keep = Map::new();
-            for k in ["sha256", "expires", "expired", "subject_cn", "issuer_cn"] {
-                if let Some(v) = cert.remove(k) { keep.insert(k.to_string(), v); }
+            let mut slim = Map::new();
+            if let Some(v) = ssl.remove("ja3s") { slim.insert("ja3s".to_string(), v); }
+            if let Some(v) = ssl.remove("jarm") { slim.insert("jarm".to_string(), v); }
+            if let Some(v) = ssl.remove("versions") { slim.insert("versions".to_string(), v); }
+            if let Some(Value::Object(mut cipher)) = ssl.remove("cipher") {
+                let mut keep = Map::new();
+                if let Some(v) = cipher.remove("name") { keep.insert("name".to_string(), v); }
+                if let Some(v) = cipher.remove("version") { keep.insert("version".to_string(), v); }
+                if !keep.is_empty() { slim.insert("cipher".to_string(), Value::Object(keep)); }
             }
-            if !keep.is_empty() { slim.insert("cert".to_string(), Value::Object(keep)); }
-        }
-        if !slim.is_empty() {
-            obj.insert("ssl".to_string(), Value::Object(slim));
+            if let Some(Value::Object(mut cert)) = ssl.remove("cert") {
+                let mut keep = Map::new();
+                for k in ["sha256", "expires", "expired", "subject_cn", "issuer_cn"] {
+                    if let Some(v) = cert.remove(k) { keep.insert(k.to_string(), v); }
+                }
+                if !keep.is_empty() { slim.insert("cert".to_string(), Value::Object(keep)); }
+            }
+            if !slim.is_empty() {
+                tech.insert("ssl".to_string(), Value::Object(slim));
+            }
         }
         None
-        } else { None }
     }
 }
 
@@ -405,9 +418,10 @@ pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
         meta_map.remove(k);
     }
 
-    // Simple path: only handle HTTP for HTML extraction; ignore other protocol sections
+    // Minimal path: handle HTTP (html, headers, favicon) and SSL essentials into tech
     let reducers: Vec<Box<dyn ProtocolReducer>> = vec![
         Box::new(HttpReducer),
+        Box::new(SslReducer),
     ];
     let mut html_tuple: Option<(i64, String)> = None;
     for r in reducers {

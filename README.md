@@ -5,7 +5,7 @@ High-throughput Shodan .zst NDJSON ingester:
 - SIMD-JSON fast-path (enable with `--features simd`)
 - Multi-worker parsing
 - COPY-only bulk loads
-- Sparse HTML side table
+- HTML is no longer stored in Postgres; it is only emitted in JSON output
 
 ## Prereqs
 
@@ -105,6 +105,8 @@ cargo run --release --features simd -- \
   --batch 10000 \
   --workers 12 \
   --db-url $DATABASE_URL
+
+Note: as of this version, HTML bodies are not inserted into Postgres. The ingester only writes minimized `asset_ports` rows. If you need HTML, enable JSON output mode and consume the separate `type: "html"` JSON records that include the minimized body.
 ```
 
 ## JSON Output Mode

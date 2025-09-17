@@ -160,14 +160,8 @@ pub async fn run(cfg: Config) -> Result<()> {
                         tracing::error!("JSON stream error: {e}");
                     }
                 } else {
-                    // For database mode, use batching
-                    if let (Some(fk), Some(body)) = (u.html_fk, u.html_body.as_ref()) {
-                        if batcher.html_rows.insert(fk, body.clone()).is_none() {
-                            stats.html_distinct += 1;
-                        }
-                        batcher.link_rows.push((u.target.clone(), u.port, u.scheme.clone(), fk));
-                    }
-
+                    // For database mode, use batching, but DO NOT store HTML in Postgres anymore
+                    // Only enqueue asset_port rows; skip html/link rows entirely
                     batcher.ap_rows.push((u.target, u.port, u.scheme, u.meta_json, u.tech_json));
 
                     if batcher.should_flush() {
@@ -201,11 +195,9 @@ pub async fn run(cfg: Config) -> Result<()> {
                 } else if cfg.json_output {
                     // JSON output progress
                     println!(
-                        "[json-output] parsed={}, processed_total={}, html_distinct={}, sanitization_fixes={}, pending_ap={}, pending_html={}",
+                        "[json-output] parsed={}, processed_total={}, sanitization_fixes={}, pending_ap={}",
                         stats.parsed, processed_total, stats.sanitization_fixes,
-                        stats.html_distinct,
                         batcher.ap_rows.len(),
-                        batcher.html_rows.len(),
                     );
                 } else {
                     tracing::info!(

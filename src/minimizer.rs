@@ -405,32 +405,9 @@ pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
         meta_map.remove(k);
     }
 
-    // Protocol reducers (order can matter: HTTP first for html extraction, then SSL)
+    // Simple path: only handle HTTP for HTML extraction; ignore other protocol sections
     let reducers: Vec<Box<dyn ProtocolReducer>> = vec![
         Box::new(HttpReducer),
-        Box::new(SslReducer),
-        Box::new(SshReducer),
-        Box::new(IsakmpReducer),
-        Box::new(SmbReducer),
-        // Generic slim-down reducers for additional protocols commonly present in Shodan
-        Box::new(GenericReducer { section: "ftp", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "smtp", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "dns", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "rdp", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "telnet", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "ntp", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "snmp", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "modbus", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "isakmp", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "ike", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "rdp", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "mongodb", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "mysql", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "mssql", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "postgres", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "redis", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "coap", drop_keys: &[] }),
-        Box::new(GenericReducer { section: "mqtt", drop_keys: &[] }),
     ];
     let mut html_tuple: Option<(i64, String)> = None;
     for r in reducers {
@@ -441,56 +418,12 @@ pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
         }
     }
 
-    // Protocol-aware drops
-    if obj.contains_key("http") || obj.contains_key("ssh") || obj.contains_key("isakmp") || obj.contains_key("smb") {
-        meta_map.remove("data");
-    }
-    if let Some(Value::Object(mut ssh)) = meta_map.remove("ssh") {
-        let mut slim = Map::new();
-        if let Some(v) = ssh.remove("hassh") { slim.insert("hassh".to_string(), v); }
-        if !slim.is_empty() { meta_map.insert("ssh".to_string(), Value::Object(slim)); }
-    }
-    if let Some(Value::Object(mut isakmp)) = meta_map.remove("isakmp") {
-        isakmp.remove("data");
-        if !isakmp.is_empty() { meta_map.insert("isakmp".to_string(), Value::Object(isakmp)); }
-    }
-    if let Some(Value::Object(mut smb)) = meta_map.remove("smb") {
-        smb.remove("raw");
-        if !smb.is_empty() { meta_map.insert("smb".to_string(), Value::Object(smb)); }
-    }
+    // Protocol-aware drops: not needed in simple mode since meta will be empty
 
-    // Squid collapse detection via server header or cpe
-    let server_header = obj
-        .get("http")
-        .and_then(|h| h.get("headers"))
-        .and_then(|hh| hh.get("server"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    // CPE aggregation only (no special cases)
     let cpes = normalize_cpe(obj);
-    let is_squid = server_header.to_ascii_lowercase().contains("squid/") || cpes.iter().any(|c| c.starts_with("squid-cache:squid"));
-    if is_squid {
-        meta_map = Map::new();
-        let mut tech_cpe = cpes
-            .into_iter()
-            .filter(|c| c.starts_with("squid-cache:squid"))
-            .collect::<Vec<_>>();
-        if tech_cpe.is_empty() {
-            // Try to parse version from header like squid/5.9
-            if let Some(ver) = server_header.split('/').nth(1) {
-                tech_cpe.push(format!("squid-cache:squid:{}", ver));
-            } else {
-                tech_cpe.push("squid-cache:squid".to_string());
-            }
-        }
-        tech_map.insert("cpe".to_string(), Value::Array(tech_cpe.into_iter().map(Value::String).collect()));
-        // ensure http_server/product/version not carried over
-        tech_map.remove("product");
-        tech_map.remove("version");
-        tech_map.remove("http_server");
-    } else {
-        if !cpes.is_empty() {
-            tech_map.insert("cpe".to_string(), Value::Array(cpes.into_iter().map(Value::String).collect()));
-        }
+    if !cpes.is_empty() {
+        tech_map.insert("cpe".to_string(), Value::Array(cpes.into_iter().map(Value::String).collect()));
     }
 
     // Tags + cloud collapsing
@@ -519,20 +452,11 @@ pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
         meta_map.remove("data");
     }
 
-    // Add cleaned domains and hostnames to meta
-    if !domains.is_empty() {
-        meta_map.insert("domains".to_string(), Value::Array(
-            domains.into_iter().map(Value::String).collect()
-        ));
-    }
-    if !hostnames.is_empty() {
-        meta_map.insert("hostnames".to_string(), Value::Array(
-            hostnames.into_iter().map(Value::String).collect()
-        ));
-    }
+    // Simple mode: do not include domains/hostnames in meta
 
     // Sanitize NULs and serialize
-    let mut meta_val = Value::Object(meta_map);
+    // Simple mode: empty meta
+    let mut meta_val = Value::Object(Map::new());
     let mut tech_val = Value::Object(tech_map);
     let mut sanitization_fixes = 0usize;
     sanitize_value(&mut meta_val, &mut sanitization_fixes);

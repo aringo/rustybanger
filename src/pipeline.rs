@@ -467,36 +467,7 @@ impl Batcher {
 fn filter_meta_fields(meta: &serde_json::Map<String, serde_json::Value>) -> serde_json::Map<String, serde_json::Value> {
     let mut filtered = serde_json::Map::new();
 
-    // Only include HTTP if it has meaningful content
-    if let Some(http_val) = meta.get("http") {
-        if let Some(http_obj) = http_val.as_object() {
-            let mut filtered_http = serde_json::Map::new();
-
-            // Keep only essential HTTP fields (server/title removed per requirements)
-            let essential_fields = ["status", "host", "location"];
-            for &field in &essential_fields {
-                if let Some(val) = http_obj.get(field) {
-                    // Skip null/empty values
-                    if !val.is_null() && !(val.is_string() && val.as_str().unwrap_or("").is_empty()) {
-                        filtered_http.insert(field.to_string(), val.clone());
-                    }
-                }
-            }
-
-            // Keep components if present and not empty
-            if let Some(components) = http_obj.get("components") {
-                if let Some(comp_obj) = components.as_object() {
-                    if !comp_obj.is_empty() {
-                        filtered_http.insert("components".to_string(), components.clone());
-                    }
-                }
-            }
-
-            if !filtered_http.is_empty() {
-                filtered.insert("http".to_string(), serde_json::Value::Object(filtered_http));
-            }
-        }
-    }
+    // Simple mode: do not include http meta fields
 
     // Keep SSL if present
     if let Some(ssl_val) = meta.get("ssl") {

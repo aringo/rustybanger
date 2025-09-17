@@ -142,38 +142,24 @@ impl ProtocolReducer for HttpReducer {
             }
         }
 
-        // Drop heavy or unstable fields per minimization.md
-        http.remove("html");
-        http.remove("robots");
-        http.remove("robots_hash");
-        http.remove("securitytxt");
-        http.remove("securitytxt_hash");
-        http.remove("sitemap");
-        http.remove("sitemap_hash");
-
-        // favicon -> hash scalar if present
-        if let Some(fav) = http.get_mut("favicon") {
-            if let Value::Object(f) = fav {
-                if let Some(Value::Number(h)) = f.get("hash") {
-                    *fav = Value::Number(h.clone());
-                }
-            }
-        }
-
-        // Keep other http fields for now; revisit after review
-
-        // If http.data is Incapsula noise, drop it
-        if let Some(Value::String(data)) = http.get("data") {
-            if data.contains("Incapsula incident ID: 0-") {
-                http.remove("data");
-            }
-        }
-
-        // Minimal HTTP: capture headers and favicon hash into tech
+        // Minimal HTTP: whitelist headers and favicon hash into tech
         if let Some(Value::Object(hdrs)) = http.get("headers") {
-            // Copy a minimal subset or full headers as a map, depending on presence
             if !hdrs.is_empty() {
-                tech.insert("http_headers".to_string(), Value::Object(hdrs.clone()));
+                let whitelist = [
+                    "content-type", "content-length", "cache-control", "pragma",
+                    "x-powered-by", "server-timing", "strict-transport-security",
+                    "access-control-allow-origin", "x-frame-options", "x-content-type-options",
+                    "referrer-policy", "permissions-policy"
+                ];
+                let mut filtered = Map::new();
+                for k in whitelist.iter() {
+                    if let Some(v) = hdrs.get(*k) {
+                        filtered.insert((*k).to_string(), v.clone());
+                    }
+                }
+                if !filtered.is_empty() {
+                    tech.insert("http_headers".to_string(), Value::Object(filtered));
+                }
             }
         }
         if let Some(fav) = http.get_mut("favicon") {
@@ -200,19 +186,14 @@ impl ProtocolReducer for SslReducer {
             if let Some(v) = ssl.remove("ja3s") { slim.insert("ja3s".to_string(), v); }
             if let Some(v) = ssl.remove("jarm") { slim.insert("jarm".to_string(), v); }
             if let Some(v) = ssl.remove("versions") { slim.insert("versions".to_string(), v); }
-            if let Some(Value::Object(mut cipher)) = ssl.remove("cipher") {
-                let mut keep = Map::new();
-                if let Some(v) = cipher.remove("name") { keep.insert("name".to_string(), v); }
-                if let Some(v) = cipher.remove("version") { keep.insert("version".to_string(), v); }
-                if !keep.is_empty() { slim.insert("cipher".to_string(), Value::Object(keep)); }
-            }
+            // Drop cipher details entirely per requirements
+            let mut cert_keep = Map::new();
             if let Some(Value::Object(mut cert)) = ssl.remove("cert") {
-                let mut keep = Map::new();
-                for k in ["sha256", "expires", "expired", "subject_cn", "issuer_cn"] {
-                    if let Some(v) = cert.remove(k) { keep.insert(k.to_string(), v); }
+                for k in ["expired", "subject_cn", "issuer_cn"] {
+                    if let Some(v) = cert.remove(k) { cert_keep.insert(k.to_string(), v); }
                 }
-                if !keep.is_empty() { slim.insert("cert".to_string(), Value::Object(keep)); }
             }
+            if !cert_keep.is_empty() { slim.insert("cert".to_string(), Value::Object(cert_keep)); }
             if !slim.is_empty() {
                 tech.insert("ssl".to_string(), Value::Object(slim));
             }

@@ -472,8 +472,8 @@ fn filter_meta_fields(meta: &serde_json::Map<String, serde_json::Value>) -> serd
         if let Some(http_obj) = http_val.as_object() {
             let mut filtered_http = serde_json::Map::new();
 
-            // Keep only essential HTTP fields
-            let essential_fields = ["status", "server", "title", "host", "location"];
+            // Keep only essential HTTP fields (server/title removed per requirements)
+            let essential_fields = ["status", "host", "location"];
             for &field in &essential_fields {
                 if let Some(val) = http_obj.get(field) {
                     // Skip null/empty values

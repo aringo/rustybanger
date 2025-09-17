@@ -169,14 +169,7 @@ impl ProtocolReducer for HttpReducer {
             }
         }
 
-        // Promote server header as a tech hint
-        if let Some(server) = http
-            .get("headers")
-            .and_then(|h| h.get("server"))
-            .and_then(|v| v.as_str())
-        {
-            tech.insert("http_server".to_string(), Value::String(server.to_string()));
-        }
+        // Do not promote server header
         }
         html_out
     }

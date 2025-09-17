@@ -49,13 +49,8 @@ Each processed Shodan record becomes an asset port record (includes `html_hash_b
   "port": 80,
   "scheme": "http",
   "html_hash_b3": "aa1f...c9",
-  "meta": {
-    "http": {
-      "body_hash": 12345
-    }
-  },
+  "meta": {},
   "tech": {
-    "http_server": "nginx/1.18.0",
     "tags": ["web"]
   }
 }

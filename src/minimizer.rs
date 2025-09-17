@@ -351,31 +351,39 @@ fn derive_scheme(port: Option<i64>, has_http: bool, has_ssl: bool) -> String {
     }
 }
 
-fn copy_keep_fields(root: &Value, keep: &[String]) -> Map<String, Value> {
-    // Copies dot-notation fields from root into a flat object using last segment as key
-    let mut out = Map::new();
-    for path in keep {
-        let parts: Vec<&str> = path.split('.').collect();
-        let mut cur = root;
-        let mut found = true;
-        for p in &parts {
-            match cur {
-                Value::Object(map) => {
-                    if let Some(n) = map.get(*p) { cur = n; } else { found = false; break; }
-                }
-                _ => { found = false; break; }
+fn get_value_by_path<'a>(root: &'a Value, path: &str) -> Option<&'a Value> {
+    let mut cur = root;
+    for seg in path.split('.') {
+        match cur {
+            Value::Object(map) => {
+                cur = map.get(seg)?;
             }
-        }
-        if found {
-            if let Some(key) = parts.last() {
-                out.insert((*key).to_string(), cur.clone());
-            }
+            _ => return None,
         }
     }
-    out
+    Some(cur)
 }
 
-pub fn minimize_record_with_keep(raw_json: &str, keep: &[String]) -> Option<Minimized> {
+fn insert_by_path(root: &mut Map<String, Value>, path: &str, value: Value) {
+    fn helper(map: &mut Map<String, Value>, parts: &[&str], value: Value) {
+        if parts.is_empty() { return; }
+        if parts.len() == 1 {
+            map.insert(parts[0].to_string(), value);
+            return;
+        }
+        let entry = map.entry(parts[0].to_string()).or_insert_with(|| Value::Object(Map::new()));
+        // Ensure it's an object to descend into
+        if !entry.is_object() {
+            *entry = Value::Object(Map::new());
+        }
+        let obj = entry.as_object_mut().expect("object after insertion");
+        helper(obj, &parts[1..], value);
+    }
+    let parts: Vec<&str> = path.split('.').collect();
+    helper(root, &parts, value);
+}
+
+pub fn minimize_record_with_keep2(raw_json: &str, keep_meta: &[String], keep_tech: &[String]) -> Option<Minimized> {
     let mut v: Value = serde_json::from_str(raw_json).ok()?;
     let obj = v.as_object_mut()?;
 
@@ -488,10 +496,22 @@ pub fn minimize_record_with_keep(raw_json: &str, keep: &[String]) -> Option<Mini
     let mut sanitization_fixes = 0usize;
     sanitize_value(&mut meta_val, &mut sanitization_fixes);
     sanitize_value(&mut tech_val, &mut sanitization_fixes);
-    // Apply allowlist copies from raw JSON into tech
-    if !keep.is_empty() {
-        let extra = copy_keep_fields(&v, keep);
-        for (k, val) in extra { tech_val.as_object_mut().unwrap().insert(k, val); }
+    // Apply allowlist copies from raw JSON
+    if !keep_meta.is_empty() {
+        let dest = meta_val.as_object_mut().unwrap();
+        for path in keep_meta {
+            if let Some(val) = get_value_by_path(&v, path) {
+                insert_by_path(dest, path, val.clone());
+            }
+        }
+    }
+    if !keep_tech.is_empty() {
+        let dest = tech_val.as_object_mut().unwrap();
+        for path in keep_tech {
+            if let Some(val) = get_value_by_path(&v, path) {
+                insert_by_path(dest, path, val.clone());
+            }
+        }
     }
 
     let meta_json = meta_val.to_string();
@@ -504,7 +524,7 @@ pub fn minimize_record_with_keep(raw_json: &str, keep: &[String]) -> Option<Mini
 }
 
 pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
-    minimize_record_with_keep(raw_json, &[])
+    minimize_record_with_keep2(raw_json, &[], &[])
 }
 
 #[cfg(test)]

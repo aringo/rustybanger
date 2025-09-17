@@ -37,10 +37,10 @@ struct Args {
     /// JSON output file path (default: stdout)
     #[arg(long)]
     json_output_file: Option<String>,
-    /// Dot-notation allowlist of fields to keep from raw Shodan JSON (repeatable)
+    /// Dot-notation allowlist of fields to keep from raw Shodan JSON (repeatable). Prefix with meta: or tech: to control destination (default meta)
     #[arg(long = "keep")]
     keep: Vec<String>,
-    /// File with dot-notation fields to keep (newline-separated or JSON array)
+    /// File with dot-notation fields to keep (newline-separated or JSON array). Supports meta:/tech: prefixes
     #[arg(long = "keep-file")]
     keep_file: Option<String>,
 }
@@ -54,12 +54,24 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     // Load keep-file if provided
-    let mut keep_fields = args.keep.clone();
+    let mut keep_meta_fields: Vec<String> = Vec::new();
+    let mut keep_tech_fields: Vec<String> = Vec::new();
+
+    let mut push_path = |s: &str| {
+        if let Some(rest) = s.strip_prefix("meta:") {
+            keep_meta_fields.push(rest.trim().to_string());
+        } else if let Some(rest) = s.strip_prefix("tech:") {
+            keep_tech_fields.push(rest.trim().to_string());
+        } else {
+            keep_meta_fields.push(s.trim().to_string());
+        }
+    };
+    for k in &args.keep { push_path(k); }
     if let Some(path) = &args.keep_file {
         let content = fs::read_to_string(path).with_context(|| format!("read keep-file {}", path))?;
         // Try JSON array first
         let parsed_json: Result<Vec<String>, _> = serde_json::from_str(&content);
-        let mut from_file: Vec<String> = match parsed_json {
+        let from_file: Vec<String> = match parsed_json {
             Ok(v) => v,
             Err(_) => {
                 // Fallback: newline-separated, trim and skip empties/comments
@@ -71,7 +83,7 @@ async fn main() -> Result<()> {
                     .collect()
             }
         };
-        keep_fields.append(&mut from_file);
+        for k in from_file { push_path(&k); }
     }
 
     pipeline::run(pipeline::Config {
@@ -84,6 +96,7 @@ async fn main() -> Result<()> {
         max_records: args.max_records,
         json_output: args.json_output,
         json_output_file: args.json_output_file,
-        keep_fields,
+        keep_meta_fields,
+        keep_tech_fields,
     }).await
 }

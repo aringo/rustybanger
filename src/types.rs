@@ -32,4 +32,5 @@ pub struct UpsertRecord {
     pub html_fk: Option<i64>,
     pub html_body: Option<String>,
     pub sanitization_fixes: usize,
+    pub html_hash_b3: Option<String>,
 }

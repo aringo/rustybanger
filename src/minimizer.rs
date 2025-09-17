@@ -19,6 +19,8 @@ pub struct Minimized {
     pub html: Option<(i64, String)>,
     pub scheme: String,
     pub sanitization_fixes: usize,
+    // New: hex-encoded BLAKE3 hash of cleaned HTML body, if present
+    pub html_hash_b3: Option<String>,
 }
 
 // Precompiled regexes to strip base64-embedded data URIs and large inline base64 chunks
@@ -366,7 +368,7 @@ pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
         .unwrap_or_default();
     if tags_list.iter().any(|t| t == "honeypot") {
         let tech = Value::Object(Map::from_iter(vec![("tags".to_string(), Value::Array(vec![Value::String("honeypot".into())]))]));
-        return Some(Minimized { meta_json: "{}".to_string(), tech_json: tech.to_string(), html: None, scheme: "tcp".to_string(), sanitization_fixes: 0 });
+        return Some(Minimized { meta_json: "{}".to_string(), tech_json: tech.to_string(), html: None, scheme: "tcp".to_string(), sanitization_fixes: 0, html_hash_b3: None });
     }
 
     // Start with a shallow clone to manipulate and then split into meta/tech
@@ -545,7 +547,10 @@ pub fn minimize_record(raw_json: &str) -> Option<Minimized> {
     let meta_json = meta_val.to_string();
     let tech_json = tech_val.to_string();
 
-    Some(Minimized { meta_json, tech_json, html: html_tuple, scheme, sanitization_fixes })
+    // Compute BLAKE3 of cleaned HTML body if present
+    let html_hash_b3 = html_tuple.as_ref().map(|(_, body)| blake3::hash(body.as_bytes()).to_hex().to_string());
+
+    Some(Minimized { meta_json, tech_json, html: html_tuple, scheme, sanitization_fixes, html_hash_b3 })
 }
 
 #[cfg(test)]

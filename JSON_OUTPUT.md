@@ -61,11 +61,12 @@ Each processed Shodan record becomes an asset port record:
 ```
 
 ### 2. HTML Records (when present)
-HTML content is output as separate records:
+HTML content is output as separate records. The hash uses hex-encoded BLAKE3 of the cleaned body:
 ```json
 {
   "type": "html",
   "hash": 12345,
+  "hash_b3": "aa1f...c9",
   "content": "<html><body>...</body></html>"
 }
 ```

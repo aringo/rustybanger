@@ -133,6 +133,7 @@ pub async fn run(cfg: Config) -> Result<()> {
                         html_fk: minimized.html.as_ref().map(|(h, _)| *h),
                         html_body: minimized.html.as_ref().map(|(_, b)| b.clone()),
                         sanitization_fixes: minimized.sanitization_fixes,
+                        html_hash_b3: minimized.html_hash_b3,
                     })
                     .await;
             }
@@ -412,6 +413,7 @@ impl Batcher {
             let html_record = json!({
                 "type": "html",
                 "hash": html_hash,
+                "hash_b3": record.html_hash_b3,
                 "content": html_content,
                 "target": record.target,
                 "port": record.port

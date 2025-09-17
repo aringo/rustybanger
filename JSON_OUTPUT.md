@@ -42,12 +42,13 @@ cargo run --release --features simd -- \
 The JSON output contains two types of records:
 
 ### 1. Asset Port Records
-Each processed Shodan record becomes an asset port record:
+Each processed Shodan record becomes an asset port record (includes `html_hash_b3` when an HTML body exists):
 ```json
 {
   "target": "192.168.1.1",
   "port": 80,
   "scheme": "http",
+  "html_hash_b3": "aa1f...c9",
   "meta": {
     "http": {
       "body_hash": 12345
@@ -61,11 +62,10 @@ Each processed Shodan record becomes an asset port record:
 ```
 
 ### 2. HTML Records (when present)
-HTML content is output as separate records. The hash uses hex-encoded BLAKE3 of the cleaned body:
+HTML content is output as separate records. The hash uses hex-encoded BLAKE3 of the cleaned body and is the only hash emitted:
 ```json
 {
   "type": "html",
-  "hash": 12345,
   "hash_b3": "aa1f...c9",
   "content": "<html><body>...</body></html>"
 }

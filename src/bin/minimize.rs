@@ -48,7 +48,6 @@ fn main() -> Result<()> {
                 "scheme": m.scheme,
                 "meta": serde_json::from_str::<Value>(&m.meta_json).ok(),
                 "tech": serde_json::from_str::<Value>(&m.tech_json).ok(),
-                "html_hash": m.html.as_ref().map(|(h, _)| h),
                 "html_hash_b3": m.html_hash_b3,
                 "html_len": html_len,
                 "sanitization_fixes": m.sanitization_fixes,

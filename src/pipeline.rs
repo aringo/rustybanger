@@ -408,11 +408,15 @@ impl Batcher {
             }
         }
 
+        // Attach hash_b3 to main record for traceability
+        if let Some(hash_b3) = &record.html_hash_b3 {
+            record_json["html_hash_b3"] = serde_json::Value::String(hash_b3.clone());
+        }
+
         // Output HTML content if present
-        if let (Some(html_hash), Some(html_content)) = (record.html_fk, &record.html_body) {
+        if let Some(html_content) = &record.html_body {
             let html_record = json!({
                 "type": "html",
-                "hash": html_hash,
                 "hash_b3": record.html_hash_b3,
                 "content": html_content,
                 "target": record.target,
@@ -448,16 +452,8 @@ impl Batcher {
             writeln!(guard, "{}", record)?;
         }
 
-        // Output HTML records as separate JSON objects
-        for (hash, content) in std::mem::take(&mut self.html_rows) {
-            let html_record = json!({
-                "type": "html",
-                "hash": hash,
-                "content": content
-            });
-
-            writeln!(guard, "{}", html_record)?;
-        }
+        // Note: HTML rows are not emitted here; streaming path already outputs them with hash_b3
+        self.html_rows.clear();
 
         // Clear link rows as they're not needed for JSON output
         self.link_rows.clear();
